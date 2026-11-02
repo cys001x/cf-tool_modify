@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"fmt"
 	"html"
 	"io/ioutil"
@@ -19,8 +18,8 @@ import (
 )
 
 func findSample(body []byte) (input [][]byte, output [][]byte, err error) {
-	irg := regexp.MustCompile(`class="input"[\s\S]*?<pre>([\s\S]*?)</pre>`)
-	org := regexp.MustCompile(`class="output"[\s\S]*?<pre>([\s\S]*?)</pre>`)
+	irg := regexp.MustCompile(`class="input"[\s\S]*?<pre([^>]*)>([\s\S]*?)</pre>`)
+	org := regexp.MustCompile(`class="output"[\s\S]*?<pre([^>]*)>([\s\S]*?)</pre>`)
 	a := irg.FindAllSubmatch(body, -1)
 	b := org.FindAllSubmatch(body, -1)
 	if a == nil || b == nil || len(a) != len(b) {
@@ -28,15 +27,25 @@ func findSample(body []byte) (input [][]byte, output [][]byte, err error) {
 	}
 	anyTag := regexp.MustCompile(`<[^>]*>`)
 	multiNL := regexp.MustCompile(`\n+`)
-	filter := func(src []byte) []byte {
-		src = anyTag.ReplaceAll(src, []byte("\n"))
-		s := html.UnescapeString(string(src))
-		s = multiNL.ReplaceAllString(s, "\n")
+	dataContent := regexp.MustCompile(`data-content="([\s\S]*?)"`)
+	filter := func(attrs, src []byte) []byte {
+		// Codeforces wraps every sample line in <div class="test-example-line">
+		// and keeps the exact sample text in the pre tag's data-content
+		// attribute. Prefer it: stripping tags would collapse blank lines that
+		// are part of the sample.
+		var s string
+		if m := dataContent.FindSubmatch(attrs); m != nil {
+			s = html.UnescapeString(string(m[1]))
+		} else {
+			src = anyTag.ReplaceAll(src, []byte("\n"))
+			s = html.UnescapeString(string(src))
+			s = multiNL.ReplaceAllString(s, "\n")
+		}
 		return []byte(strings.TrimSpace(s) + "\n")
 	}
 	for i := 0; i < len(a); i++ {
-		input = append(input, filter(a[i][1]))
-		output = append(output, filter(b[i][1]))
+		input = append(input, filter(a[i][1], a[i][2]))
+		output = append(output, filter(b[i][1], b[i][2]))
 	}
 	return
 }
@@ -59,7 +68,11 @@ func (c *Client) ParseProblem(URL, path string, mu *sync.Mutex) (samples int, st
 	}
 
 	standardIO = true
-	if !bytes.Contains(body, []byte(`<div class="input-file"><div class="property-title">input</div>standard input</div><div class="output-file"><div class="property-title">output</div>standard output</div>`)) {
+	// The class attribute gained an extra modifier ("input-file input-standard"),
+	// so match the prefix instead of the exact old attribute value.
+	stdIO := regexp.MustCompile(`class="input-file[^"]*"[\s\S]*?standard input`)
+	stdOut := regexp.MustCompile(`class="output-file[^"]*"[\s\S]*?standard output`)
+	if !(stdIO.Match(body) && stdOut.Match(body)) {
 		standardIO = false
 	}
 
@@ -128,16 +141,15 @@ func (c *Client) Parse(info Info) (problems []string, paths []string, err error)
 			fmt.Printf("Parsing %v\n", problemID)
 			mu.Unlock()
 
-			err = os.MkdirAll(path, os.ModePerm)
-			if err != nil {
+			if err := os.MkdirAll(path, os.ModePerm); err != nil {
+				mu.Lock()
+				color.Red("Failed %v. Error: %v", problemID, err.Error())
+				mu.Unlock()
 				return
 			}
 			URL := fmt.Sprintf(urlFormatter, problemID)
 
 			samples, standardIO, err := c.ParseProblem(URL, path, &mu)
-			if err != nil {
-				return
-			}
 
 			warns := ""
 			if !standardIO {
