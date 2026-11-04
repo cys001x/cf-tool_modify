@@ -87,5 +87,10 @@ func (c *Client) Submit(info Info, langID, source string) (err error) {
 	info.SubmissionID = submissions[0].ParseID()
 	c.Handle = handle
 	c.LastSubmission = &info
+
+	if link, linkErr := info.SubmissionURL(c.host); linkErr == nil {
+		color.Green("Submission link: %v", link)
+	}
+
 	return c.save()
 }
