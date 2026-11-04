@@ -74,6 +74,9 @@ Examples:
   cf submit -f a.cpp 100 a
   cf submit contest 100 a
   cf submit gym 100001 a
+  cf submit 1136a      Print the link right after submitting, and when the
+                       verdict is not accepted, print the failed tests and
+                       save them as inK.txt/ansK.txt for "cf test".
   cf list              List all problems' stats of a contest.
   cf list 1119
   cf parse 100         Fetch all problems' samples of contest 100 into

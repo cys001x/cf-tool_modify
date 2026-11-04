@@ -173,6 +173,8 @@ $ go env -w GOPRIVATE=gitcode.com/sheng_wang/cf-tool_modify
                        打印该提交的概要信息与每个测试点的结果，失败测试点会附上
                        输入、输出与期望答案。
   cf detail            打印最后一次提交的详情。
+  cf submit 1136a      提交后立刻打印提交链接；若判定不是 Accepted，会打印失败的
+                       测试点并存成 inK.txt/ansK.txt，可直接用 cf test 本地复现。
   cf race 1136         如果比赛还未开始且进入倒计时，则该命令会倒计时。倒计时完后，会自动打开一些
                        题目页面并拉取样例。
   cf pull 100          拉取比赛 id 为 100 每道题的最新代码到文件夹 "./100/<problem-id>" 下。

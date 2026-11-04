@@ -97,6 +97,7 @@ func (c *Client) Submit(info Info, langID, source string) (err error) {
 	info.SubmissionID = submissions[0].ParseID()
 	c.Handle = handle
 	c.LastSubmission = &info
+	c.LastVerdict = submissions[0].verdict
 	return c.save()
 }
 

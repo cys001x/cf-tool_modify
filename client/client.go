@@ -22,6 +22,7 @@ type Client struct {
 	Ftaa           string         `json:"ftaa"`
 	Bfaa           string         `json:"bfaa"`
 	LastSubmission *Info          `json:"last_submission"`
+	LastVerdict    string         `json:"-"`
 	host           string
 	proxy          string
 	path           string

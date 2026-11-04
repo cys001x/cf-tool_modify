@@ -21,17 +21,18 @@ import (
 
 // Submission submit state
 type Submission struct {
-	name   string
-	id     uint64
-	status string
-	passed uint64
-	judged uint64
-	points uint64
-	time   uint64
-	memory uint64
-	lang   string
-	when   string
-	end    bool
+	name    string
+	id      uint64
+	status  string
+	verdict string
+	passed  uint64
+	judged  uint64
+	points  uint64
+	time    uint64
+	memory  uint64
+	lang    string
+	when    string
+	end     bool
 }
 
 func isWait(verdict string) bool {
@@ -201,7 +202,8 @@ func parseSubmission(body []byte, cfOffset string) (ret Submission, err error) {
 	}
 	sub := doc.Find(".submissionVerdictWrapper")
 	end := false
-	if verdict, exist := sub.Attr("submissionverdict"); exist && !isWait(verdict) {
+	verdictAttr, _ := sub.Attr("submissionverdict")
+	if verdictAttr != "" && !isWait(verdictAttr) {
 		end = true
 	}
 	status, _ := sub.Html()
@@ -228,17 +230,18 @@ func parseSubmission(body []byte, cfOffset string) (ret Submission, err error) {
 		num = uint64(n)
 	}
 	return Submission{
-		id:     getInt(".id-cell"),
-		name:   get("td[data-problemId]"),
-		lang:   get("td:not([class])"),
-		status: status,
-		time:   getInt(".time-consumed-cell"),
-		memory: getInt(".memory-consumed-cell") * 1024,
-		when:   when,
-		passed: num,
-		judged: num,
-		points: num,
-		end:    end,
+		id:      getInt(".id-cell"),
+		name:    get("td[data-problemId]"),
+		lang:    get("td:not([class])"),
+		status:  status,
+		verdict: verdictAttr,
+		time:    getInt(".time-consumed-cell"),
+		memory:  getInt(".memory-consumed-cell") * 1024,
+		when:    when,
+		passed:  num,
+		judged:  num,
+		points:  num,
+		end:     end,
 	}, nil
 }
 

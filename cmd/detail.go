@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"gitcode.com/sheng_wang/cf-tool_modify/client"
@@ -54,19 +56,7 @@ func printField(name, value string) {
 	fmt.Printf("  %-8v: %v\n", name, value)
 }
 
-// Detail command prints the summary and the per-test results of a submission.
-func Detail() (err error) {
-	cln := client.Instance
-	info := Args.Info
-	if info.SubmissionID == "" && cln.LastSubmission != nil {
-		info = *cln.LastSubmission
-	}
-
-	detail, err := cln.SubmissionDetail(info)
-	if err != nil {
-		return
-	}
-
+func printSummary(detail client.SubmissionDetail, info client.Info) {
 	fmt.Printf("Submission %v\n", detail.ID)
 	printField("contest", detail.ContestName)
 	printField("problem", detail.ProblemName)
@@ -88,31 +78,12 @@ func Detail() (err error) {
 	}
 	printField("sent", detail.Sent)
 	printField("judged", detail.Judged)
-	if link, linkErr := info.SubmissionURL(config.Instance.Host); linkErr == nil {
+	if link, err := info.SubmissionURL(config.Instance.Host); err == nil {
 		printField("link", link)
 	}
+}
 
-	if detail.TestsError != nil {
-		fmt.Printf("\n")
-		color.Yellow("Test details unavailable: %v", detail.TestsError)
-		return
-	}
-
-	if detail.CompilationError {
-		fmt.Printf("\n")
-		color.Red("Compilation error")
-		for _, test := range detail.Tests {
-			if test.Checker != "" {
-				printIndented(truncateLines(test.Checker, maxDetailLines))
-			}
-		}
-		return
-	}
-
-	if len(detail.Tests) == 0 {
-		return
-	}
-
+func printTestTable(detail client.SubmissionDetail) {
 	var buf bytes.Buffer
 	table := tablewriter.NewWriter(io.Writer(&buf))
 	table.SetHeader([]string{"#", "verdict", "time", "memory", "exit", "checker"})
@@ -121,14 +92,13 @@ func Detail() (err error) {
 	table.SetCenterSeparator("|")
 	table.SetAutoWrapText(false)
 	for _, test := range detail.Tests {
-		checker := strings.TrimSpace(test.Checker)
 		table.Append([]string{
 			fmt.Sprintf("%v", test.Index),
 			test.Verdict,
 			fmt.Sprintf("%v ms", test.Time),
 			formatSize(test.Memory),
 			test.ExitCode,
-			checker,
+			strings.TrimSpace(test.Checker),
 		})
 	}
 	table.Render()
@@ -138,7 +108,11 @@ func Detail() (err error) {
 	for scanner.Scan() {
 		ansi.Println(scanner.Text())
 	}
+}
 
+// printFailedTests prints the input/output/expected of every non-passed test.
+// It reports whether anything was printed.
+func printFailedTests(detail client.SubmissionDetail) bool {
 	printed := false
 	for _, test := range detail.Tests {
 		if test.Passed {
@@ -167,7 +141,81 @@ func Detail() (err error) {
 			printIndented(truncateLines(test.Diagnostics, maxDetailLines))
 		}
 	}
-	if !printed && detail.Verdict != "" {
+	return printed
+}
+
+func printCompilationError(detail client.SubmissionDetail) {
+	color.Red("Compilation error")
+	for _, test := range detail.Tests {
+		if test.Checker != "" {
+			printIndented(truncateLines(test.Checker, maxDetailLines))
+		}
+	}
+}
+
+// writeSample writes one sample file, keeping a ".bak" copy when it would
+// replace different content that is already there.
+func writeSample(name, content string) error {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	if old, err := ioutil.ReadFile(name); err == nil && string(old) != content {
+		ioutil.WriteFile(name+".bak", old, 0644)
+	}
+	return ioutil.WriteFile(name, []byte(content), 0644)
+}
+
+// saveFailedTestFiles stores the failed tests as inK.txt / ansK.txt so that
+// "cf test" can reproduce them locally.
+func saveFailedTestFiles(detail client.SubmissionDetail, dir string) (saved []string, err error) {
+	for _, test := range detail.Tests {
+		if test.Passed || strings.TrimSpace(test.Input) == "" {
+			continue
+		}
+		inName := filepath.Join(dir, fmt.Sprintf("in%v.txt", test.Index))
+		ansName := filepath.Join(dir, fmt.Sprintf("ans%v.txt", test.Index))
+		if err = writeSample(inName, test.Input); err != nil {
+			return
+		}
+		if err = writeSample(ansName, test.Answer); err != nil {
+			return
+		}
+		saved = append(saved, filepath.Base(inName), filepath.Base(ansName))
+	}
+	return
+}
+
+// Detail command prints the summary and the per-test results of a submission.
+func Detail() (err error) {
+	cln := client.Instance
+	info := Args.Info
+	if info.SubmissionID == "" && cln.LastSubmission != nil {
+		info = *cln.LastSubmission
+	}
+
+	detail, err := cln.SubmissionDetail(info)
+	if err != nil {
+		return
+	}
+
+	printSummary(detail, info)
+
+	if detail.TestsError != nil {
+		fmt.Printf("\n")
+		color.Yellow("Test details unavailable: %v", detail.TestsError)
+		return
+	}
+
+	if detail.CompilationError {
+		fmt.Printf("\n")
+		printCompilationError(detail)
+		return
+	}
+
+	if len(detail.Tests) == 0 {
+		return
+	}
+
+	printTestTable(detail)
+	if !printFailedTests(detail) && detail.Verdict != "" {
 		fmt.Printf("\nAll %v tests passed.\n", len(detail.Tests))
 	}
 	return
