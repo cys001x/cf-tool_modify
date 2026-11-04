@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"syscall"
@@ -191,6 +193,12 @@ func (c *Client) LoginWithCookies(cookieStr string) (err error) {
 		return
 	}
 
+	if bytes.Contains(body, []byte("Just a moment")) {
+		return errors.New("Cloudflare returned a challenge page instead of codeforces.\n" +
+			"The cf_clearance cookie is missing, expired, or bound to a different User-Agent.\n" +
+			"Set your browser's User-Agent with `cf config` -> 9) set browser User-Agent")
+	}
+
 	handle, err := findHandle(body)
 	if err != nil {
 		return errors.New("Cookie verification failed: not logged in. Make sure you copied the cookies while logged in on codeforces.com")
@@ -214,11 +222,32 @@ func (c *Client) ConfigLoginWithCookies() (err error) {
 	color.Cyan("  2. Open DevTools (F12) -> Application -> Cookies -> https://codeforces.com")
 	color.Cyan("  3. Collect all Name=Value pairs, join with '; ' into one line.")
 	color.Cyan("     Tip: extensions like 'Cookie-Editor' can export a header string directly.")
+	color.Cyan("     Tip: right-click a request in the Network tab -> Copy -> Copy as cURL gives the same string.")
+	color.Cyan("  4. The string must contain cf_clearance, otherwise Cloudflare blocks every request.")
 	fmt.Printf("Paste cookie string: ")
 	cookieStr := util.ScanlineTrim()
 	if cookieStr == "" {
 		return errors.New("No cookies provided")
 	}
+
+	err = c.LoginWithCookies(cookieStr)
+	if err == nil {
+		return nil
+	}
+	color.Red(err.Error())
+	if os.Getenv("CF_UA") != "" {
+		// The environment override wins, so asking for another UA is useless.
+		return err
+	}
+
+	color.Cyan("Cloudflare validates cf_clearance against the browser User-Agent.")
+	color.Cyan("Open the browser console on codeforces.com and run: navigator.userAgent")
+	fmt.Printf("Paste your User-Agent to retry (empty line to give up): ")
+	ua := util.ScanlineTrim()
+	if ua == "" {
+		return err
+	}
+	SetUserAgent(ua)
 	return c.LoginWithCookies(cookieStr)
 }
 

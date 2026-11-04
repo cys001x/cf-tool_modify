@@ -82,3 +82,33 @@ cf-tool will verify the session and save it. All subsequent commands (`cf submit
 
 Cloudflare's `cf_clearance` cookie typically expires after a few days. When cf-tool
 starts returning login errors, simply repeat the steps above to refresh the cookies.
+
+## User-Agent Binding
+
+Cloudflare binds `cf_clearance` to the exact `User-Agent` string of the browser that
+obtained it. If cf-tool sends a different UA, Cloudflare answers with a 403 challenge
+page and the tool reports:
+
+```
+Cloudflare returned a challenge page instead of codeforces.
+```
+
+The default UA compiled into the tool is a fixed Chrome string, which will not match a
+browser that has updated since. Set the real value from the browser:
+
+```
+cf config  ->  9) set browser User-Agent
+```
+
+Paste the output of `navigator.userAgent` from the browser console on codeforces.com.
+The value is stored in `~/.cf/config` as `user_agent` and used for every request.
+
+If the cookie login fails, `cf config` also asks for the User-Agent automatically and
+retries once, then stores the value on success.
+
+Precedence: the `CF_UA` environment variable wins over the config file, which wins over
+the built-in default. `CF_UA` is useful for temporary overrides; the config file is the
+value to keep.
+
+The UA must be refreshed whenever the browser updates, because the newly issued
+`cf_clearance` is bound to the new UA.

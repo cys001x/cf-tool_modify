@@ -22,11 +22,17 @@ func Config() (err error) {
 	ansi.Println(`6) set host domain`)
 	ansi.Println(`7) set proxy`)
 	ansi.Println(`8) set folders' name`)
-	index := util.ChooseIndex(9)
+	ansi.Println(`9) set browser User-Agent`)
+	index := util.ChooseIndex(10)
 	if index == 0 {
 		return cln.ConfigLogin()
 	} else if index == 1 {
-		return cln.ConfigLoginWithCookies()
+		err = cln.ConfigLoginWithCookies()
+		if err == nil && client.GetUserAgent() != cfg.UserAgent {
+			cfg.UserAgent = client.GetUserAgent()
+			cfg.Save()
+		}
+		return err
 	} else if index == 2 {
 		return cfg.AddTemplate()
 	} else if index == 3 {
@@ -41,6 +47,10 @@ func Config() (err error) {
 		return cfg.SetProxy()
 	} else if index == 8 {
 		return cfg.SetFolderName()
+	} else if index == 9 {
+		err = cfg.SetUserAgent()
+		client.SetUserAgent(cfg.UserAgent)
+		return err
 	}
 	return
 }

@@ -29,6 +29,7 @@ type Config struct {
 	GenAfterParse bool              `json:"gen_after_parse"`
 	Host          string            `json:"host"`
 	Proxy         string            `json:"proxy"`
+	UserAgent     string            `json:"user_agent"`
 	FolderName    map[string]string `json:"folder_name"`
 	path          string
 }
@@ -76,6 +77,11 @@ func (c *Config) load() (err error) {
 	}
 
 	return json.Unmarshal(bytes, c)
+}
+
+// Save writes the configuration back to disk.
+func (c *Config) Save() (err error) {
+	return c.save()
 }
 
 // save file to path

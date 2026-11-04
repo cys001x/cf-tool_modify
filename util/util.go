@@ -28,15 +28,18 @@ func RandString(n int) string {
 	return string(b)
 }
 
+// stdinReader is shared by every Scanline call. A fresh bufio.Scanner per call
+// would consume more than one line from a pipe and lose the rest of the input.
+var stdinReader = bufio.NewReader(os.Stdin)
+
 // Scanline scan line
 func Scanline() string {
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		return scanner.Text()
+	line, err := stdinReader.ReadString('\n')
+	if err != nil && line == "" {
+		fmt.Println("\nInterrupted.")
+		os.Exit(1)
 	}
-	fmt.Println("\nInterrupted.")
-	os.Exit(1)
-	return ""
+	return strings.TrimRight(line, "\r\n")
 }
 
 // ScanlineTrim scan line and trim

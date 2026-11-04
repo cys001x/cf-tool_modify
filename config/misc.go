@@ -85,6 +85,28 @@ func (c *Config) SetProxy() (err error) {
 	return c.save()
 }
 
+// SetUserAgent set the browser User-Agent used for every request.
+// Cloudflare binds cf_clearance to the User-Agent that obtained it, so this
+// must match the browser the cookies were exported from.
+func (c *Config) SetUserAgent() (err error) {
+	if len(c.UserAgent) == 0 {
+		color.Green("Current User-Agent is the built-in default")
+	} else {
+		color.Green("Current User-Agent is %v", c.UserAgent)
+	}
+	color.Cyan(`Set your browser's User-Agent`)
+	color.Cyan(`Get it from the browser console on codeforces.com: navigator.userAgent`)
+	color.Cyan(`Enter an empty line to reset to the built-in default`)
+	ua := util.ScanlineTrim()
+	c.UserAgent = ua
+	if len(ua) == 0 {
+		color.Green("User-Agent reset to the built-in default")
+	} else {
+		color.Green("User-Agent is now %v", ua)
+	}
+	return c.save()
+}
+
 // SetFolderName set folder name
 func (c *Config) SetFolderName() (err error) {
 	color.Cyan(`Set folders' name`)

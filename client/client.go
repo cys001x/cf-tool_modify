@@ -33,13 +33,34 @@ var Instance *Client
 
 const defaultUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
+// configUA is the User-Agent stored in the user's configuration file.
+var configUA string
+
+// SetUserAgent records the User-Agent taken from the configuration file.
+// An empty value falls back to defaultUA.
+func SetUserAgent(ua string) {
+	configUA = strings.TrimSpace(ua)
+}
+
+// GetUserAgent returns the User-Agent currently taken from the configuration
+// (not the CF_UA environment override). Used to persist a value learned at
+// login time.
+func GetUserAgent() string {
+	return configUA
+}
+
 // browserUA returns the User-Agent sent with every request.
 // Cloudflare binds cf_clearance to the User-Agent that obtained it, so this
-// must match the browser the cookies were exported from. Override it with the
-// CF_UA environment variable instead of editing this file.
+// must match the browser the cookies were exported from.
+//
+// Priority: CF_UA environment variable, then the configured value, then the
+// built-in default.
 func browserUA() string {
 	if ua := strings.TrimSpace(os.Getenv("CF_UA")); ua != "" {
 		return ua
+	}
+	if configUA != "" {
+		return configUA
 	}
 	return defaultUA
 }

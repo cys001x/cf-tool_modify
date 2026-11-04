@@ -167,6 +167,7 @@ Script in template:
 	clnPath, _ := homedir.Expand(sessionPath)
 	config.Init(cfgPath)
 	client.Init(clnPath, config.Instance.Host, config.Instance.Proxy)
+	client.SetUserAgent(config.Instance.UserAgent)
 
 	err := cmd.Eval(opts)
 	if err != nil {
