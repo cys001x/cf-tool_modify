@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"gitcode.com/sheng_wang/cf-tool_modify/util"
 
@@ -79,6 +80,15 @@ func (c *Client) Submit(info Info, langID, source string) (err error) {
 
 	color.Green("Submitted")
 
+	// Fetch the new submission id right away so the link can be printed before
+	// the verdict finishes, instead of after the watch loop.
+	if id, idErr := c.submissionIDAfterSubmit(info); idErr == nil {
+		info.SubmissionID = id
+		if link, linkErr := info.SubmissionURL(c.host); linkErr == nil {
+			color.Green("Submission link: %v", link)
+		}
+	}
+
 	submissions, err := c.WatchSubmission(info, 1, true)
 	if err != nil {
 		return
@@ -87,10 +97,33 @@ func (c *Client) Submit(info Info, langID, source string) (err error) {
 	info.SubmissionID = submissions[0].ParseID()
 	c.Handle = handle
 	c.LastSubmission = &info
+	return c.save()
+}
 
-	if link, linkErr := info.SubmissionURL(c.host); linkErr == nil {
-		color.Green("Submission link: %v", link)
+// submissionIDAfterSubmit polls the "my submissions" page until it shows an id
+// different from the previously stored one, so a submit prints the new link
+// without waiting for the judge.
+func (c *Client) submissionIDAfterSubmit(info Info) (string, error) {
+	URL, err := info.MySubmissionURL(c.host)
+	if err != nil {
+		return "", err
 	}
 
-	return c.save()
+	previous := ""
+	if c.LastSubmission != nil && c.LastSubmission.ContestID == info.ContestID {
+		previous = c.LastSubmission.SubmissionID
+	}
+
+	for i := 0; i < 6; i++ {
+		submissions, err := c.getSubmissions(URL, 1)
+		if err == nil && len(submissions) > 0 {
+			id := submissions[0].ParseID()
+			if id != "" && id != previous {
+				return id, nil
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return "", errors.New("Cannot find the new submission")
 }
