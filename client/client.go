@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gitcode.com/sheng_wang/cf-tool_modify/cookiejar"
 	"github.com/fatih/color"
@@ -30,7 +31,18 @@ type Client struct {
 // Instance global client
 var Instance *Client
 
-const browserUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+const defaultUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+// browserUA returns the User-Agent sent with every request.
+// Cloudflare binds cf_clearance to the User-Agent that obtained it, so this
+// must match the browser the cookies were exported from. Override it with the
+// CF_UA environment variable instead of editing this file.
+func browserUA() string {
+	if ua := strings.TrimSpace(os.Getenv("CF_UA")); ua != "" {
+		return ua
+	}
+	return defaultUA
+}
 
 // uaTransport injects a browser User-Agent so Cloudflare accepts the cf_clearance cookie.
 type uaTransport struct {
@@ -39,7 +51,7 @@ type uaTransport struct {
 
 func (t *uaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
-	req.Header.Set("User-Agent", browserUA)
+	req.Header.Set("User-Agent", browserUA())
 	return t.inner.RoundTrip(req)
 }
 
