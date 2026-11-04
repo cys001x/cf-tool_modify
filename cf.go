@@ -38,6 +38,7 @@ Usage:
   cf open [<specifier>...]
   cf stand [<specifier>...]
   cf sid [<specifier>...]
+  cf detail [<specifier>...]
   cf race [<specifier>...]
   cf pull [ac] [<specifier>...]
   cf clone [ac] [<handle>]
@@ -102,6 +103,10 @@ Examples:
   cf sid 52531875      Use default web browser to open the submission
                        52531875's page.
   cf sid               Open the last submission's page.
+  cf detail https://codeforces.com/contest/1136/submission/52531875
+                       Print the summary and the per-test results of a
+                       submission, including input/output of failed tests.
+  cf detail            Print the details of the last submission.
   cf race 1136         If the contest 1136 has not started yet, it will
                        countdown. When the countdown ends, it will open all
                        problems' pages and parse samples.
